@@ -18,8 +18,10 @@ raise notice 'Запускаем создание новой структуры 
 begin
 
 	-- Связи
-	alter table if exists public.measurment_input_params
-	drop constraint if exists measurment_type_id_fk;
+-- 	alter table if exists public.measurment_input_params
+-- 	drop constraint if exists measurment_type_id_fk;
+	drop table if exists public.measurment_input_params CASCADE;
+
 
 	alter table if exists public.employees
 	drop constraint if exists military_rank_id_fk;
@@ -41,7 +43,7 @@ begin
 
 	alter table if exists public.calc_header_correction
 	drop constraint  if exists measurment_type_id_fk;
-	
+
 	-- Таблицы
 	drop table if exists public.measurment_input_params;
 	drop table if exists public.measurment_baths;
@@ -68,7 +70,7 @@ end;
 raise notice 'Удаление старых данных выполнено успешно';
 
 /*
- 2. Добавляем структуры данных 
+ 2. Добавляем структуры данных
  ================================================
  */
 
@@ -95,7 +97,7 @@ create table employees
 	military_rank_id integer not null
 );
 
-insert into employees(id, name, birthday,military_rank_id )  
+insert into employees(id, name, birthday,military_rank_id )
 values(1, 'Воловиков Александр Сергеевич','1978-06-24', 2);
 
 create sequence employees_seq start 2;
@@ -108,7 +110,7 @@ create table measurment_types
 (
    id integer primary key not null,
    short_name  character varying(50),
-   description text 
+   description text
 );
 
 insert into measurment_types(id, short_name, description)
@@ -120,7 +122,7 @@ create sequence measurment_types_seq start 3;
 alter table measurment_types alter column id set default nextval('public.measurment_types_seq');
 
 -- Таблица с параметрами
-create table measurment_input_params 
+create table measurment_input_params
 (
     id integer primary key not null,
 	measurment_type_id integer not null,
@@ -166,7 +168,7 @@ create table measurment_settings
 
 
 insert into measurment_settings(key, value, description)
-values('min_temperature', '-10', 'Минимальное значение температуры'), 
+values('min_temperature', '-10', 'Минимальное значение температуры'),
 ('max_temperature', '50', 'Максимальное значение температуры'),
 ('min_pressure','500','Минимальное значение давления'),
 ('max_pressure','900','Максимальное значение давления'),
@@ -178,7 +180,7 @@ values('min_temperature', '-10', 'Минимальное значение тем
 ('max_height','400','Максимальная высота');
 
 
-raise notice 'Создание общих справочников и наполнение выполнено успешно'; 
+raise notice 'Создание общих справочников и наполнение выполнено успешно';
 
 /*
  3. Подготовка расчетных структур
@@ -245,7 +247,7 @@ create table calc_header_correction
 	values integer[] not null
 );
 
-insert into calc_header_correction(measurment_type_id, description, values) 
+insert into calc_header_correction(measurment_type_id, description, values)
 values (1, 'Заголовок для Таблицы № 2 (ДМК)', array[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50]),
        (2, 'Заголовок для Таблицы № 2 (ВР)', array[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50]);
 
@@ -286,8 +288,8 @@ values
 (7,1,array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 30, 30], array[-1, -2, -2, -3, -4, -4, -5, -5, -6, -7, -15, -23, -31, -38]), --2400
 (8,1,array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 30, 30], array[-1, -2, -2, -3, -4, -4, -4, -5, -5, -6, -15, -22, -30, -37]), --3000
 (9,1,array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 30, 30], array[ -1, -2, -2, -3, -4, -4, -4, -4, -5, -6, -14, -20, -27, -34]); --4000
-	
-	  
+
+
 raise notice 'Расчетные структуры сформированы';
 
 /*
@@ -295,7 +297,7 @@ raise notice 'Расчетные структуры сформированы';
  ==========================================
  */
 
-begin 
+begin
 
 	-- Связь между заголовком корректирующих таблиц и типом оборудования (один ко многим)
 	alter table public.calc_header_correction
@@ -322,13 +324,13 @@ begin
 
 	-- Связь между пачками измерений с пользователями (один ко многим)
 	alter table public.measurment_baths
-	add constraint emploee_id_fk 
+	add constraint emploee_id_fk
 	foreign key (emploee_id)
 	references public.employees (id);
 
 	-- Связь между пачками измерений и измерениями (один к одному)
 	alter table public.measurment_baths
-	add constraint measurment_input_param_id_fk 
+	add constraint measurment_input_param_id_fk
 	foreign key(measurment_input_param_id)
 	references public.measurment_input_params(id);
 
@@ -366,24 +368,24 @@ declare
 	virtual_temperature numeric(8,2) default 0;
 	deltaTv numeric(8,2) default 0;
 	var_result numeric(8,2) default 0;
-begin	
+begin
 
 	raise notice 'Расчет отклонения приземной виртуальной температуры по температуре %', par_temperature;
 
 	-- Определим табличное значение температуры
-	Select coalesce(value::numeric(8,2), default_temperature) 
-	from public.measurment_settings 
+	Select coalesce(value::numeric(8,2), default_temperature)
+	from public.measurment_settings
 	into virtual_temperature
-	where 
+	where
 		key = default_temperature_key;
 
     -- Вирутальная поправка
-	deltaTv := par_temperature + 
+	deltaTv := par_temperature +
 		public.fn_calc_temperature_interpolation(par_temperature => par_temperature);
-		
+
 	-- Отклонение приземной виртуальной температуры
 	var_result := deltaTv - virtual_temperature;
-	
+
 	return var_result;
 end;
 $BODY$;
@@ -416,7 +418,7 @@ declare
 begin
 
 	raise notice 'Расчет отклонения наземного давления для %', par_pressure;
-	
+
 	-- Определяем граничное табличное значение
 	if not exists (select 1 from public.measurment_settings where key = default_pressure_key ) then
 	Begin
@@ -424,13 +426,13 @@ begin
 	end;
 	else
 	begin
-		select value::numeric(18,2) 
+		select value::numeric(18,2)
 		into table_pressure
 		from  public.measurment_settings where key = default_pressure_key;
 	end;
 	end if;
 
-	
+
 	-- Результат
 	return par_pressure - coalesce(table_pressure,table_pressure) ;
 
@@ -454,20 +456,20 @@ declare
 	var_result public.check_result;
 begin
 	var_result.is_check = False;
-	
+
 	-- Температура
 	if not exists (
 		select 1 from (
-				select 
-						coalesce(min_temperature , '0')::numeric(8,2) as min_temperature, 
+				select
+						coalesce(min_temperature , '0')::numeric(8,2) as min_temperature,
 						coalesce(max_temperature, '0')::numeric(8,2) as max_temperature
-				from 
+				from
 				(select 1 ) as t
 					cross join
 					( select value as  min_temperature from public.measurment_settings where key = 'min_temperature' ) as t1
-					cross join 
+					cross join
 					( select value as  max_temperature from public.measurment_settings where key = 'max_temperature' ) as t2
-				) as t	
+				) as t
 			where
 				par_temperature between min_temperature and max_temperature
 			) then
@@ -477,20 +479,20 @@ begin
 
 	var_result.params.temperature = par_temperature;
 
-	
+
 	-- Давление
 	if not exists (
 		select 1 from (
-			select 
-					coalesce(min_pressure , '0')::numeric(8,2) as min_pressure, 
+			select
+					coalesce(min_pressure , '0')::numeric(8,2) as min_pressure,
 					coalesce(max_pressure, '0')::numeric(8,2) as max_pressure
-			from 
+			from
 			(select 1 ) as t
 				cross join
 				( select value as  min_pressure from public.measurment_settings where key = 'min_pressure' ) as t1
-				cross join 
+				cross join
 				( select value as  max_pressure from public.measurment_settings where key = 'max_pressure' ) as t2
-			) as t	
+			) as t
 			where
 				par_pressure between min_pressure and max_pressure
 				) then
@@ -498,21 +500,21 @@ begin
 			var_result.error_message := format('Давление %s не укладывает в диаппазон!', par_pressure);
 	end if;
 
-	var_result.params.pressure = par_pressure;			
+	var_result.params.pressure = par_pressure;
 
 		-- Высота
 		if not exists (
 			select 1 from (
-				select 
-						coalesce(min_height , '0')::numeric(8,2) as min_height, 
+				select
+						coalesce(min_height , '0')::numeric(8,2) as min_height,
 						coalesce(max_height, '0')::numeric(8,2) as  max_height
-				from 
+				from
 				(select 1 ) as t
 					cross join
 					( select value as  min_height from public.measurment_settings where key = 'min_height' ) as t1
-					cross join 
+					cross join
 					( select value as  max_height from public.measurment_settings where key = 'max_height' ) as t2
-				) as t	
+				) as t
 				where
 				par_height between min_height and max_height
 				) then
@@ -521,18 +523,18 @@ begin
 		end if;
 
 		var_result.params.height = par_height;
-		
+
 		-- Напрвление ветра
 		if not exists (
-			select 1 from (	
-				select 
-						coalesce(min_wind_direction , '0')::numeric(8,2) as min_wind_direction, 
+			select 1 from (
+				select
+						coalesce(min_wind_direction , '0')::numeric(8,2) as min_wind_direction,
 						coalesce(max_wind_direction, '0')::numeric(8,2) as max_wind_direction
-				from 
+				from
 				(select 1 ) as t
 					cross join
 					( select value as  min_wind_direction from public.measurment_settings where key = 'min_wind_direction' ) as t1
-					cross join 
+					cross join
 					( select value as  max_wind_direction from public.measurment_settings where key = 'max_wind_direction' ) as t2
 			)
 				where
@@ -541,16 +543,16 @@ begin
 
 			var_result.error_message := format('Направление ветра %s не укладывает в диаппазон!', par_wind_direction);
 	end if;
-			
-	var_result.params.wind_direction = par_wind_direction;	
+
+	var_result.params.wind_direction = par_wind_direction;
 	var_result.params.wind_speed = par_wind_speed;
 
 	if coalesce(var_result.error_message,'') = ''  then
 		var_result.is_check = True;
-	end if;	
+	end if;
 
 	return var_result;
-	
+
 end;
 $body$;
 
@@ -574,11 +576,11 @@ begin
 	if var_result.is_check = False then
 		raise exception 'Ошибка %', var_result.error_message;
 	end if;
-	
+
 	return var_result.params;
 end ;
 $body$;
-		
+
 -- Функция для расчета интерполяции
 drop function if exists public.fn_calc_temperature_interpolation;
 create function public.fn_calc_temperature_interpolation(
@@ -586,8 +588,8 @@ create function public.fn_calc_temperature_interpolation(
 		returns numeric
 		language 'plpgsql'
 as $body$
-	-- Расчет интерполяции 
-	declare 
+	-- Расчет интерполяции
+	declare
 			var_interpolation interpolation_type;
 	        var_result numeric(8,2) default 0;
 	        var_min_temparure numeric(8,2) default 0;
@@ -600,29 +602,29 @@ as $body$
                 -- Проверим, возможно температура совпадает со значением в справочнике
                 if exists (select 1 from public.calc_temperature_correction where temperature = par_temperature ) then
                 begin
-                        select correction 
-                        into  var_result 
+                        select correction
+                        into  var_result
                         from  public.calc_temperature_correction
-                        where 
+                        where
                                 temperature = par_temperature;
                 end;
-                else    
+                else
                 begin
                         -- Получим диапазон в котором работают поправки
-                        select min(temperature), max(temperature) 
+                        select min(temperature), max(temperature)
                         into var_min_temparure, var_max_temperature
                         from public.calc_temperature_correction;
 
-                        if par_temperature < var_min_temparure or   
+                        if par_temperature < var_min_temparure or
                            par_temperature > var_max_temperature then
 
                                 raise exception 'Некорректно передан параметр! Невозможно рассчитать поправку. Значение должно укладываться в диаппазон: %, %',
                                         var_min_temparure, var_max_temperature;
-                        end if;   
+                        end if;
 
                         -- Получим граничные параметры
 
-                        select x0, y0, x1, y1 
+                        select x0, y0, x1, y1
 						 into var_interpolation.x0, var_interpolation.y0, var_interpolation.x1, var_interpolation.y1
                         from
                         (
@@ -637,7 +639,7 @@ as $body$
                                 select t1.temperature as x1, t1.correction as y1
                                 from public.calc_temperature_correction as t1
                                 where t1.temperature >= par_temperature
-                                order by t1.temperature 
+                                order by t1.temperature
                                 limit 1
                         ) as rightPart;
 
@@ -708,15 +710,15 @@ begin
 
 	var_min_value := 10;
 	var_max_value := 50;
-	
+
     for var_position in 1 .. par_length loop
         -- добавляем к строке случайный символ
 	    var_random_number := fn_get_randon_integer(var_min_value, var_max_value );
         var_result := var_result || substr(par_list_of_chars,  var_random_number ,1);
     end loop;
-	
+
     return var_result;
-	
+
 end;
 $body$;
 
@@ -736,7 +738,7 @@ begin
 
 	-- Проверяю аргументы
 	var_params := public.fn_check_input_params(par_params);
-	
+
 	select
 		-- Дата
 		public.fn_calc_header_period(now()) ||
@@ -745,13 +747,13 @@ begin
 		-- Отклонение наземного давления атмосферы
 		lpad(
 				case when coalesce(var_params.pressure,0) < 0 then
-					'5' 
+					'5'
 				else ''
 				end ||
 				lpad ( abs(( coalesce(var_params.pressure, 0) )::int)::text,2,'0')
 			, 3, '0') as "БББ",
-		-- Отклонение приземной виртуальной температуры	
-		lpad( 
+		-- Отклонение приземной виртуальной температуры
+		lpad(
 				case when coalesce( var_params.temperature, 0) < 0 then
 					'5'
 				else
@@ -786,32 +788,32 @@ declare
 begin
 
 -- Проверяем наличие данные в таблице
-if not exists ( 
-	
+if not exists (
+
 		select 1
 			from public.calc_height_correction as t1
-			inner join public.calc_temperature_height_correction as t2 
+			inner join public.calc_temperature_height_correction as t2
 				on t2.calc_height_id = t1.id
-			where 
+			where
 					measurment_type_id = par_measurement_type_id
 
 			) then
-			
+
 		raise exception 'Для расчета поправок к температуре не хватает данных!';
-	
+
 	end if;
 
-	for var_row in 
+	for var_row in
 			-- Запрос на выборку высот
-			select t2.*, t1.height 
+			select t2.*, t1.height
 			from public.calc_height_correction as t1
-			inner join public.calc_temperature_height_correction as t2 
+			inner join public.calc_temperature_height_correction as t2
 				on t2.calc_height_id = t1.id
 			where measurment_type_id = par_measurement_type_id
 		loop
 			-- Получаем индекс корректировки
 			var_index := par_temperature_correction::integer;
-			-- Получаем заголовок 
+			-- Получаем заголовок
 			var_header_correction := (select values from public.calc_header_correction
 				where id = var_row.calc_temperature_header_id );
 
@@ -842,11 +844,11 @@ if not exists (
 			var_left_index := var_header_correction[ var_header_index];
 			if var_left_index = 0 then
 				var_left_index := 1;
-			end if;	
+			end if;
 
-			-- Поправка на высоту	
+			-- Поправка на высоту
 			var_deviation:= var_table[ var_left_index  ] + var_table[ var_right_index     ];
-			
+
 			raise notice 'Для высоты % получили следующую поправку %', var_row.height, var_deviation;
 
 			var_correction.calc_height_id := var_row.calc_height_id;
@@ -869,7 +871,7 @@ do $$
 declare
 	var_pressure_value numeric(8,2) default 0;
 	var_temperature_value numeric(8,2) default 0;
-	
+
 	var_period text;
 	var_pressure text;
 	var_height text;
@@ -878,7 +880,7 @@ begin
 
 	var_pressure_value :=  round(public.fn_calc_header_pressure(743));
 	var_temperature_value := round( public.fn_calc_header_temperature(3));
-	
+
 	select
 		-- Дата
 		public.fn_calc_header_period(now()) as "ДДЧЧМ",
@@ -887,13 +889,13 @@ begin
 		-- Отклонение наземного давления атмосферы
 		lpad(
 				case when var_pressure_value < 0 then
-					'5' 
+					'5'
 				else ''
 				end ||
 				lpad ( abs((var_pressure_value)::int)::text,2,'0')
 			, 3, '0') as "БББ",
-		-- Отклонение приземной виртуальной температуры	
-		lpad( 
+		-- Отклонение приземной виртуальной температуры
+		lpad(
 				case when var_temperature_value < 0 then
 					'5'
 				else
@@ -907,23 +909,23 @@ begin
 		raise notice '==============================';
 		raise notice 'Пример расчета метео приближенный';
 		raise notice 'ДДЧЧМ %, ВВВВ %,  БББ % , TT %', 	var_period, var_height, var_pressure, var_temperature;
-		
+
 end $$;
 
 
 -- Проверка входных параметров
 do $$
-declare 
+declare
 	var_result public.check_result;
 begin
 
 	raise notice '=====================================';
 	raise notice 'Проверка работы функции [fn_check_input_params]';
 	raise notice 'Положительный сценарий';
-	
+
 	-- Корректный вариант
 	var_result := public.fn_check_input_params(par_height => 400, par_temperature => 23, par_pressure => 740, par_wind_direction => 5, par_wind_speed => 5, par_bullet_demolition_range => 5 );
-			
+
 	if var_result.is_check != True then
 		raise notice '-> Проверка не пройдена!';
 	else
@@ -942,11 +944,11 @@ begin
 		raise notice '-> Проверка пройдена';
 	end if;
 
-	
+
 	raise notice 'Сообщение: %', var_result.error_message;
 
 	raise notice '=====================================';
-	
+
 end $$;
 
 -- Проверка расчета поправок по высоте для температуры
@@ -956,7 +958,7 @@ declare
 begin
 	raise notice 'Проверка расчета поправок к температуре по высоте [sp_calc_temperature_deviation]';
 
-	call public.sp_calc_temperature_deviation( par_temperature_correction => 3::numeric,  par_measurement_type_id => 1::integer, 
+	call public.sp_calc_temperature_deviation( par_temperature_correction => 3::numeric,  par_measurement_type_id => 1::integer,
 			par_corrections => var_corrections::public.temperature_correction[]);
 	raise notice 'Результат расчета для корректировки 3 и типа оборудования 1: % ',  var_corrections;
 	raise notice '=====================================';
@@ -978,20 +980,20 @@ declare
 begin
 
 	-- Определяем макс дипазон по должностям
-	select min(id), max(id) 
+	select min(id), max(id)
 	into var_min_rank,var_max_rank
 	from public.military_ranks;
 
-	
+
 	-- Формируем список пользователей
 	for var_position in 1 .. var_emploee_quantity loop
 		insert into public.employees(name, birthday, military_rank_id )
-		select 
+		select
 			fn_get_random_text(25),								-- name
 			fn_get_random_timestamp('1978-01-01','2000-01-01'), 				-- birthday
 			fn_get_randon_integer(var_min_rank, var_max_rank)  -- military_rank_id
 			;
-		select id into var_emploee_id from public.employees order by id desc limit 1;	
+		select id into var_emploee_id from public.employees order by id desc limit 1;
 		var_emploee_ids := var_emploee_ids || var_emploee_id;
 	end loop;
 
@@ -1001,7 +1003,7 @@ begin
 	foreach var_current_emploee_id in ARRAY var_emploee_ids LOOP
 		for var_index in 1 .. 100 loop
 			var_measure_type_id := fn_get_randon_integer(1,2);
-			
+
 			insert into public.measurment_input_params(measurment_type_id, height, temperature, pressure, wind_direction, wind_speed)
 			select
 				var_measure_type_id,
@@ -1013,19 +1015,19 @@ begin
 				;
 
 			select id into var_measure_input_data_id from 	measurment_input_params order by id desc limit 1;
-				
+
 			insert into public.measurment_baths( emploee_id, measurment_input_param_id, started)
 			select
 				var_current_emploee_id,
 				var_measure_input_data_id,
 				fn_get_random_timestamp('2025-02-01 00:00', '2025-02-05 00:00')
-			;	
+			;
 		end loop;
-	
+
 	end loop;
 
 	raise notice 'Набор тестовых данных сформирован успешно';
-	
+
 end $$;
 
 /*
@@ -1039,7 +1041,7 @@ select
 	user_name, position, quantity, quantity_fails
 from
 (
-	select 
+	select
 			-- ФИО  | Должность
 			t1.id , t1.name as user_name, t2.description as position,
 			coalesce(tt1.quantity, 0 ) as quantity,
@@ -1049,7 +1051,7 @@ from
 	left join
 	(
 		--  Кол-во измерений
-		select count(*) as quantity,  emploee_id 
+		select count(*) as quantity,  emploee_id
 		from public.measurment_input_params as t1
 		inner join public.measurment_baths as t2 on t2.measurment_input_param_id = t1.id
 		group by emploee_id
@@ -1057,9 +1059,9 @@ from
 	left join
 	(
 		-- Количество ошибочных данных
-		select 
+		select
 			count(*) as quantity_fails,
-			emploee_id 
+			emploee_id
 		from public.measurment_input_params as t1
 		inner join public.measurment_baths as t2 on t2.measurment_input_param_id = t1.id
 		where
@@ -1067,7 +1069,159 @@ from
 		group by emploee_id
 	) as tt2 on tt2.emploee_id = t1.id
 ) as tt
-order by tt.quantity_fails desc
+order by tt.quantity_fails desc;
+
+drop table if exists public.wind_bullet_drift cascade;
+create table public.wind_bullet_drift (
+    standard_height INT PRIMARY KEY,
+    d40  INT,
+    d50  INT,
+    d60  INT,
+    d70  INT,
+    d80  INT,
+    d90  INT,
+    d100 INT,
+    d110 INT,
+    d120 INT,
+    d130 INT,
+    d140 INT,
+    d150 INT,
+    direction_angle_inc VARCHAR(5)
+);
+
+insert into public.wind_bullet_drift
+(standard_height, d40, d50, d60, d70, d80, d90, d100, d110, d120, d130, d140, d150, direction_angle_inc)
+VALUES
+    (200, 0, 1, 1, 2, 2, 3, 4, 5, 6, 7, 9, 11, '0-00'),
+    (300, 0, 1, 2, 2, 3, 4, 5, 6, 7, 8, 10, 12, '1-00'),
+    (400, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, '2-00'),
+    (500, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, '3-00'),
+    (600, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, '4-00'),
+    (700, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '5-00'),
+    (800, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '6-00'),
+    (900, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '7-00'),
+    (1000, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '8-00'),
+    (1100, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '9-00'),
+    (1200, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '10-00'),
+    (1300, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '11-00'),
+    (1400, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '12-00'),
+    (1500, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '12-00');
+
+
+drop type if exists public.wind_correction cascade;
+create type public.wind_correction as (
+    standard_height int,
+    drift_correction int
+);
+
+drop procedure if exists public.sp_calc_wind_bullet_drift;
+create procedure public.sp_calc_wind_bullet_drift(
+    in par_bullet_range int,
+    inout par_corrections public.wind_correction[]
+)
+language 'plpgsql'
+as $BODY$
+declare
+    rec record;
+    correction int;
+    wc public.wind_correction;
+begin
+    for rec in
+        select * from public.wind_bullet_drift
+    loop
+        correction := case
+            when par_bullet_range = 40 then rec.d40
+            when par_bullet_range = 50 then rec.d50
+            when par_bullet_range = 60 then rec.d60
+            when par_bullet_range = 70 then rec.d70
+            when par_bullet_range = 80 then rec.d80
+            when par_bullet_range = 90 then rec.d90
+            when par_bullet_range = 100 then rec.d100
+            when par_bullet_range = 110 then rec.d110
+            when par_bullet_range = 120 then rec.d120
+            when par_bullet_range = 130 then rec.d130
+            when par_bullet_range = 140 then rec.d140
+            when par_bullet_range = 150 then rec.d150
+            else 0
+        end;
+        wc.standard_height := rec.standard_height;
+        wc.drift_correction := correction;
+        par_corrections := array_append(par_corrections, wc);
+        raise notice 'Высота: %, поправка: %', rec.standard_height, correction;
+    end loop;
+end;
+$BODY$;
+
+
+do $$
+declare
+    wind_corr public.wind_correction[];
+begin
+    call public.sp_calc_wind_bullet_drift(70, wind_corr);
+    raise notice 'Результаты расчёта поправок по Ветровому ружью: %', wind_corr;
+end $$;
+
+create index if not exists idx_measurment_input_params_type
+    on public.measurment_input_params(measurment_type_id);
+
+create index if not exists idx_measurment_baths_employee
+    on public.measurment_baths(emploee_id);
+
+create index if not exists idx_measurment_baths_input
+    on public.measurment_baths(measurment_input_param_id);
+
+create index if not exists idx_calc_height_correction_type
+    on public.calc_height_correction(measurment_type_id);
+
+create or replace view public.vw_measurement_report as
+with measurement_counts as (
+    select t2.emploee_id, count(*) as quantity
+    from public.measurment_input_params t1
+    inner join public.measurment_baths t2 on t2.measurment_input_param_id = t1.id
+    group by t2.emploee_id
+),
+measurement_fails as (
+    select t2.emploee_id, count(*) as quantity_fails
+    from public.measurment_input_params t1
+    inner join public.measurment_baths t2 on t2.measurment_input_param_id = t1.id
+    where (public.fn_check_input_params(height, temperature, pressure, wind_direction, wind_speed, bullet_demolition_range)
+           ::public.check_result).is_check = false
+    group by t2.emploee_id
+)
+select
+    e.name as "ФИО",
+    mr.description as "Должность",
+    coalesce(mc.quantity, 0) as "Кол-во измерений",
+    coalesce(mf.quantity_fails, 0) as "Кол-во ошибочных данных"
+from public.employees e
+inner join public.military_ranks mr on e.military_rank_id = mr.id
+left join measurement_counts mc on mc.emploee_id = e.id
+left join measurement_fails mf on mf.emploee_id = e.id
+order by "Кол-во ошибочных данных" desc;
+
+create or replace view public.vw_effective_measurement_height as
+with user_measurements as (
+    select
+        e.id as employee_id,
+        e.name as "ФИО пользователя",
+        mr.description as "Звание",
+        min(mip.height) as "Мин. высота метеопоста",
+        max(mip.height) as "Макс. высота метеопоста",
+        count(*) as "Всего измерений",
+        sum(case
+            when (public.fn_check_input_params(mip.height, mip.temperature, mip.pressure, mip.wind_direction, mip.wind_speed, mip.bullet_demolition_range)
+                  ::public.check_result).is_check = false
+            then 1 else 0 end) as "Из них ошибочны"
+    from public.employees e
+    inner join public.measurment_baths mb on mb.emploee_id = e.id
+    inner join public.measurment_input_params mip on mip.id = mb.measurment_input_param_id
+    inner join public.military_ranks mr on e.military_rank_id = mr.id
+    group by e.id, e.name, mr.description
+)
+select *
+from user_measurements
+where "Всего измерений" >= 5 and "Из них ошибочны" < 10;
+
 
 
 
