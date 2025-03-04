@@ -1071,159 +1071,163 @@ from
 ) as tt
 order by tt.quantity_fails desc;
 
-drop table if exists public.wind_bullet_drift cascade;
-create table public.wind_bullet_drift (
-    standard_height INT PRIMARY KEY,
-    d40  INT,
-    d50  INT,
-    d60  INT,
-    d70  INT,
-    d80  INT,
-    d90  INT,
-    d100 INT,
-    d110 INT,
-    d120 INT,
-    d130 INT,
-    d140 INT,
-    d150 INT,
-    direction_angle_inc VARCHAR(5)
+DROP TABLE IF EXISTS public.wind_bullet_drift CASCADE;
+
+DROP SEQUENCE IF EXISTS public.wind_bullet_drift_seq CASCADE;
+CREATE SEQUENCE public.wind_bullet_drift_seq START 1;
+
+CREATE TABLE public.wind_bullet_drift (
+    id INTEGER PRIMARY KEY DEFAULT nextval('public.wind_bullet_drift_seq'),
+    standard_height INT NOT NULL,
+    drift_corrections INT[] NOT NULL,
+    direction_angle_inc VARCHAR(5) NOT NULL
 );
 
-insert into public.wind_bullet_drift
-(standard_height, d40, d50, d60, d70, d80, d90, d100, d110, d120, d130, d140, d150, direction_angle_inc)
+INSERT INTO public.wind_bullet_drift (standard_height, drift_corrections, direction_angle_inc)
 VALUES
-    (200, 0, 1, 1, 2, 2, 3, 4, 5, 6, 7, 9, 11, '0-00'),
-    (300, 0, 1, 2, 2, 3, 4, 5, 6, 7, 8, 10, 12, '1-00'),
-    (400, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, '2-00'),
-    (500, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, '3-00'),
-    (600, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, '4-00'),
-    (700, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '5-00'),
-    (800, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '6-00'),
-    (900, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '7-00'),
-    (1000, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '8-00'),
-    (1100, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '9-00'),
-    (1200, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '10-00'),
-    (1300, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '11-00'),
-    (1400, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '12-00'),
-    (1500, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, '12-00');
+    (200, ARRAY[0, 1, 1, 2, 2, 3, 4, 5, 6, 7, 9, 11], '0-00'),
+    (300, ARRAY[0, 1, 2, 2, 3, 4, 5, 6, 7, 8, 10, 12], '1-00'),
+    (400, ARRAY[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13], '2-00'),
+    (500, ARRAY[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13], '3-00'),
+    (600, ARRAY[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13], '4-00'),
+    (700, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '5-00'),
+    (800, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '6-00'),
+    (900, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '7-00'),
+    (1000, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '8-00'),
+    (1100, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '9-00'),
+    (1200, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '10-00'),
+    (1300, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '11-00'),
+    (1400, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '12-00'),
+    (1500, ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], '12-00');
 
 
-drop type if exists public.wind_correction cascade;
-create type public.wind_correction as (
-    standard_height int,
-    drift_correction int
+DROP TYPE IF EXISTS public.wind_correction CASCADE;
+CREATE TYPE public.wind_correction AS (
+    wind_drift_id INT,
+    standard_height INT,
+    drift_correction INT
 );
 
-drop procedure if exists public.sp_calc_wind_bullet_drift;
-create procedure public.sp_calc_wind_bullet_drift(
-    in par_bullet_range int,
-    inout par_corrections public.wind_correction[]
+
+DROP PROCEDURE IF EXISTS public.sp_calc_wind_bullet_drift;
+CREATE PROCEDURE public.sp_calc_wind_bullet_drift(
+    IN par_bullet_range INT,
+    INOUT par_corrections public.wind_correction[]
 )
-language 'plpgsql'
-as $BODY$
-declare
-    rec record;
-    correction int;
+LANGUAGE plpgsql
+AS $BODY$
+DECLARE
+    allowed_distances INT[] := ARRAY[40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150];
+    idx INT;
+    rec RECORD;
     wc public.wind_correction;
-begin
-    for rec in
-        select * from public.wind_bullet_drift
-    loop
-        correction := case
-            when par_bullet_range = 40 then rec.d40
-            when par_bullet_range = 50 then rec.d50
-            when par_bullet_range = 60 then rec.d60
-            when par_bullet_range = 70 then rec.d70
-            when par_bullet_range = 80 then rec.d80
-            when par_bullet_range = 90 then rec.d90
-            when par_bullet_range = 100 then rec.d100
-            when par_bullet_range = 110 then rec.d110
-            when par_bullet_range = 120 then rec.d120
-            when par_bullet_range = 130 then rec.d130
-            when par_bullet_range = 140 then rec.d140
-            when par_bullet_range = 150 then rec.d150
-            else 0
-        end;
+BEGIN
+    idx := array_position(allowed_distances, par_bullet_range);
+    IF idx IS NULL THEN
+        RAISE EXCEPTION 'Недопустимое значение дистанции: %. Допустимые значения: %', par_bullet_range, allowed_distances;
+    END IF;
+
+    FOR rec IN SELECT * FROM public.wind_bullet_drift LOOP
+        wc.wind_drift_id := rec.id;
         wc.standard_height := rec.standard_height;
-        wc.drift_correction := correction;
+        wc.drift_correction := rec.drift_corrections[idx];
         par_corrections := array_append(par_corrections, wc);
-        raise notice 'Высота: %, поправка: %', rec.standard_height, correction;
-    end loop;
-end;
+        RAISE NOTICE 'Стандартная высота: %, поправка: %', rec.standard_height, rec.drift_corrections[idx];
+    END LOOP;
+END;
 $BODY$;
 
 
-do $$
-declare
+DO $$
+DECLARE
     wind_corr public.wind_correction[];
-begin
-    call public.sp_calc_wind_bullet_drift(70, wind_corr);
-    raise notice 'Результаты расчёта поправок по Ветровому ружью: %', wind_corr;
-end $$;
+BEGIN
+    CALL public.sp_calc_wind_bullet_drift(70, wind_corr);
+    RAISE NOTICE 'Результаты расчёта поправок по Ветровому ружью: %', wind_corr;
+END $$;
 
-create index if not exists idx_measurment_input_params_type
-    on public.measurment_input_params(measurment_type_id);
 
-create index if not exists idx_measurment_baths_employee
-    on public.measurment_baths(emploee_id);
+CREATE INDEX IF NOT EXISTS idx_measurment_input_params_type
+    ON public.measurment_input_params(measurment_type_id);
 
-create index if not exists idx_measurment_baths_input
-    on public.measurment_baths(measurment_input_param_id);
+CREATE INDEX IF NOT EXISTS idx_measurment_baths_employee
+    ON public.measurment_baths(emploee_id);
 
-create index if not exists idx_calc_height_correction_type
-    on public.calc_height_correction(measurment_type_id);
+CREATE INDEX IF NOT EXISTS idx_measurment_baths_input
+    ON public.measurment_baths(measurment_input_param_id);
 
-create or replace view public.vw_measurement_report as
-with measurement_counts as (
-    select t2.emploee_id, count(*) as quantity
-    from public.measurment_input_params t1
-    inner join public.measurment_baths t2 on t2.measurment_input_param_id = t1.id
-    group by t2.emploee_id
+CREATE INDEX IF NOT EXISTS idx_calc_height_correction_type
+    ON public.calc_height_correction(measurment_type_id);
+
+
+CREATE OR REPLACE VIEW public.vw_measurement_report AS
+WITH measurement_counts AS (
+    SELECT t2.emploee_id, COUNT(*) AS quantity
+    FROM public.measurment_input_params t1
+    INNER JOIN public.measurment_baths t2 ON t2.measurment_input_param_id = t1.id
+    GROUP BY t2.emploee_id
 ),
-measurement_fails as (
-    select t2.emploee_id, count(*) as quantity_fails
-    from public.measurment_input_params t1
-    inner join public.measurment_baths t2 on t2.measurment_input_param_id = t1.id
-    where (public.fn_check_input_params(height, temperature, pressure, wind_direction, wind_speed, bullet_demolition_range)
+measurement_fails AS (
+    SELECT t2.emploee_id, COUNT(*) AS quantity_fails
+    FROM public.measurment_input_params t1
+    INNER JOIN public.measurment_baths t2 ON t2.measurment_input_param_id = t1.id
+    WHERE (public.fn_check_input_params(height, temperature, pressure, wind_direction, wind_speed, bullet_demolition_range)
            ::public.check_result).is_check = false
-    group by t2.emploee_id
+    GROUP BY t2.emploee_id
 )
-select
-    e.name as "ФИО",
-    mr.description as "Должность",
-    coalesce(mc.quantity, 0) as "Кол-во измерений",
-    coalesce(mf.quantity_fails, 0) as "Кол-во ошибочных данных"
-from public.employees e
-inner join public.military_ranks mr on e.military_rank_id = mr.id
-left join measurement_counts mc on mc.emploee_id = e.id
-left join measurement_fails mf on mf.emploee_id = e.id
-order by "Кол-во ошибочных данных" desc;
-
-create or replace view public.vw_effective_measurement_height as
-with user_measurements as (
-    select
-        e.id as employee_id,
-        e.name as "ФИО пользователя",
-        mr.description as "Звание",
-        min(mip.height) as "Мин. высота метеопоста",
-        max(mip.height) as "Макс. высота метеопоста",
-        count(*) as "Всего измерений",
-        sum(case
-            when (public.fn_check_input_params(mip.height, mip.temperature, mip.pressure, mip.wind_direction, mip.wind_speed, mip.bullet_demolition_range)
-                  ::public.check_result).is_check = false
-            then 1 else 0 end) as "Из них ошибочны"
-    from public.employees e
-    inner join public.measurment_baths mb on mb.emploee_id = e.id
-    inner join public.measurment_input_params mip on mip.id = mb.measurment_input_param_id
-    inner join public.military_ranks mr on e.military_rank_id = mr.id
-    group by e.id, e.name, mr.description
-)
-select *
-from user_measurements
-where "Всего измерений" >= 5 and "Из них ошибочны" < 10;
+SELECT
+    e.name AS "ФИО",
+    mr.description AS "Должность",
+    COALESCE(mc.quantity, 0) AS "Кол-во измерений",
+    COALESCE(mf.quantity_fails, 0) AS "Кол-во ошибочных данных"
+FROM public.employees e
+INNER JOIN public.military_ranks mr ON e.military_rank_id = mr.id
+LEFT JOIN measurement_counts mc ON mc.emploee_id = e.id
+LEFT JOIN measurement_fails mf ON mf.emploee_id = e.id
+ORDER BY "Кол-во ошибочных данных" DESC;
 
 
-
-
-
-
+CREATE OR REPLACE VIEW public.vw_effective_measurement_height AS
+WITH
+    cte_employees AS (
+        SELECT e.id, e.name, mr.description AS rank
+        FROM public.employees e
+        INNER JOIN public.military_ranks mr ON e.military_rank_id = mr.id
+    ),
+    cte_measurements AS (
+        SELECT
+            mb.emploee_id,
+            MIN(mip.height) AS min_height,
+            MAX(mip.height) AS max_height,
+            COUNT(*) AS total_measurements,
+            SUM(CASE
+                    WHEN (public.fn_check_input_params(mip.height, mip.temperature, mip.pressure, mip.wind_direction, mip.wind_speed, mip.bullet_demolition_range)
+                          ::public.check_result).is_check = false
+                    THEN 1 ELSE 0
+                END) AS failed_measurements
+        FROM public.measurment_baths mb
+        INNER JOIN public.measurment_input_params mip ON mip.id = mb.measurment_input_param_id
+        GROUP BY mb.emploee_id
+    ),
+    cte_filtered AS (
+        SELECT
+            e.id,
+            e.name,
+            e.rank,
+            m.min_height,
+            m.max_height,
+            m.total_measurements,
+            m.failed_measurements
+        FROM cte_employees e
+        INNER JOIN cte_measurements m ON e.id = m.emploee_id
+        WHERE m.total_measurements >= 5 AND m.failed_measurements < 10
+    )
+SELECT
+    id AS "ID пользователя",
+    name AS "ФИО пользователя",
+    rank AS "Звание",
+    min_height AS "Мин. высота метеопоста",
+    max_height AS "Макс. высота метеопоста",
+    total_measurements AS "Всего измерений",
+    failed_measurements AS "Из них ошибочны"
+FROM cte_filtered;
