@@ -1323,3 +1323,45 @@ order by coalesce(quantity_fails,0) asc, coalesce(min_height, 0) asc ;
 
 -- Проверка отчета
 select * from vw_report_fails_height_statistics
+
+CREATE OR REPLACE PROCEDURE public.sp_calc_avg_meteo(
+    IN  p_measurement_type_id INTEGER,
+    OUT p_avg_temp_deviation NUMERIC(8,2),
+    OUT p_avg_wind_speed NUMERIC(8,2),
+    OUT p_avg_wind_direction NUMERIC(8,2)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    SELECT AVG(public.fn_calc_header_temperature(temperature))
+      INTO p_avg_temp_deviation
+      FROM public.measurment_input_params
+     WHERE measurment_type_id = p_measurement_type_id;
+
+    SELECT AVG(wind_speed)
+      INTO p_avg_wind_speed
+      FROM public.measurment_input_params
+     WHERE measurment_type_id = p_measurement_type_id;
+
+    SELECT AVG(wind_direction)
+      INTO p_avg_wind_direction
+      FROM public.measurment_input_params
+     WHERE measurment_type_id = p_measurement_type_id;
+END;
+$$;
+
+DO $$
+DECLARE
+    avg_temp    NUMERIC(8,2);
+    avg_speed   NUMERIC(8,2);
+    avg_dir     NUMERIC(8,2);
+BEGIN
+    CALL public.sp_calc_avg_meteo(1, avg_temp, avg_speed, avg_dir);
+    RAISE NOTICE 'ДМК: Среднее отклонение температуры = %, Средняя скорость ветра = %, Среднее направление ветра = %',
+        avg_temp, avg_speed, avg_dir;
+
+    CALL public.sp_calc_avg_meteo(2, avg_temp, avg_speed, avg_dir);
+    RAISE NOTICE 'ВР: Среднее отклонение температуры = %, Средняя скорость ветра = %, Среднее направление ветра = %',
+        avg_temp, avg_speed, avg_dir;
+END;
+$$;
